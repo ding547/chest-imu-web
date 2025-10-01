@@ -12,69 +12,56 @@
     --sub:#555555;
     --shadow:0 10px 30px rgba(0,0,0,.08);
     --radius:18px;
+    --chip:#f2f2f7;
+    --border:#e5e5ea;
   }
   html,body{height:100%}
   body{
     margin:0;
-    font-family: -apple-system, system-ui, "SF Pro Text", "SF Pro Display", Segoe UI, Roboto, Arial, sans-serif;
-    background:var(--bg);
-    color:var(--text);
-    -webkit-font-smoothing:antialiased;
+    font-family:-apple-system, system-ui, "SF Pro Text","SF Pro Display", Segoe UI, Roboto, Arial, sans-serif;
+    background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;
   }
   /* iOS large title header */
   .header{
     position:sticky; top:0; z-index:5;
     background:linear-gradient(#f8f8f8,#fff);
-    padding:20px 16px 10px;
-    border-bottom:1px solid #eee;
+    padding:20px 16px 10px; border-bottom:1px solid #eee;
   }
-  .large-title{
-    font-size:34px; font-weight:700; letter-spacing:.2px;
-    text-align:center;
-  }
+  .large-title{ font-size:34px; font-weight:700; letter-spacing:.2px; text-align:center; }
 
   /* centered card */
-  .wrap{
-    max-width:740px; margin:18px auto; padding:0 16px;
-  }
-  .card{
-    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow);
-    padding:22px 18px;
-  }
+  .wrap{ max-width:740px; margin:18px auto; padding:0 16px; }
+  .card{ background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 18px; }
 
-  /* layout blocks */
-  .center{ text-align:center; }
-  .vspace{ margin-top:14px; }
+  /* layout */
+  .center{text-align:center;} .vspace{margin-top:14px;}
   .hint{ color:var(--sub); font-size:14px; line-height:1.35; }
   .status{ font-weight:700; font-size:18px; margin-top:10px; }
-  .pill{ padding:4px 10px; border-radius:999px; background:#f2f2f7; display:inline-block; font-size:13px; }
+  .pill{ padding:4px 10px; border-radius:999px; background:var(--chip); display:inline-block; font-size:13px; }
+  .pill.ok{ background:#e7f3ff; color:#0a5bd8; }
 
-  /* Task selector (iOS look) */
+  /* selector */
   .selector{
-    appearance:none;
-    font-size:22px; font-weight:600;
+    appearance:none; font-size:22px; font-weight:600;
     padding:10px 16px; min-width:320px; max-width:100%;
-    border:1px solid #e5e5ea; border-radius:12px;
-    background:#fff url("data:image/svg+xml,%3Csvg viewBox='0 0 16 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 2l6 6 6-6' stroke='%23999' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center/16px 10px;
+    border:1px solid var(--border); border-radius:12px; background:#fff
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 16 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 2l6 6 6-6' stroke='%23999' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
+    no-repeat right 12px center/16px 10px;
   }
 
-  /* iOS-like buttons */
-  .btn{
-    font-size:17px; font-weight:600; padding:12px 18px; min-width:170px;
-    border-radius:12px; border:1px solid transparent; cursor:pointer;
-    transition:.15s transform ease, .2s background ease;
-    display:inline-block;
-  }
+  /* buttons */
+  .btn{ font-size:17px; font-weight:600; padding:12px 18px; min-width:170px;
+        border-radius:12px; border:1px solid transparent; cursor:pointer;
+        transition:.15s transform ease, .2s background ease; display:inline-block; }
   .btn:active{ transform:scale(.98) }
   .btn-primary{ background:var(--accent); color:#fff; }
-  .btn-secondary{ background:#f2f2f7; color:#111; border-color:#e5e5ea; }
+  .btn-secondary{ background:var(--chip); color:#111; border-color:var(--border); }
   .btn[disabled]{ opacity:.5; cursor:default; transform:none }
-
-  /* grid of buttons */
   .btns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 
-  /* footer info */
   footer{ color:#8e8e93; font-size:12px; text-align:center; padding:16px 0 28px; }
+  /* accessibility */
+  [aria-live]{min-height:1.4em}
 </style>
 </head>
 <body>
@@ -107,9 +94,15 @@
       </div>
 
       <!-- Status + hint -->
-      <div id="status" class="status vspace">Idle</div>
-      <div id="hint" class="hint vspace">Place phone at mid-chest, screen facing forward. Keep it steady.</div>
-      <div class="vspace"><span class="pill" id="cycles">Cycles: 0/6</span></div>
+      <div id="status" class="status vspace" aria-live="polite">Idle</div>
+      <div id="hint" class="hint vspace" aria-live="polite">
+        Place phone at mid-chest, screen facing forward. Keep it steady.
+      </div>
+
+      <!-- Cycles (fast tasks only) -->
+      <div class="vspace" id="cyclesRow" style="display:none;">
+        <span class="pill ok" id="cycles">Cycles: 0/6</span>
+      </div>
     </div>
 
     <footer class="wrap">
@@ -141,31 +134,41 @@
   // latest readings
   let last = {
     ts: 0,
-    ax: 0, ay: 0, az: 0,          // from DeviceMotion (browser单位视实现而定，原样记录)
-    gx: 0, gy: 0, gz: 0,          // rad/s (由 deg/s 转换)
-    alpha: 0, beta: 0, gamma: 0,  // 原始欧拉（deg）
-    yaw: 0, pitch: 0, roll: 0     // 推导的 yaw/pitch/roll（rad）
+    ax: 0, ay: 0, az: 0,          // DeviceMotion acceleration (kept as-is)
+    gx: 0, gy: 0, gz: 0,          // rad/s (from deg/s)
+    alpha: 0, beta: 0, gamma: 0,  // raw euler (deg)
+    yaw: 0, pitch: 0, roll: 0     // mapped yaw/pitch/roll (rad)
   };
 
   // samples buffer
   let samples = [];
 
   // -------------------- UI handles --------------------
-  const $task   = document.getElementById('task');
-  const $start  = document.getElementById('btnStart');
-  const $stop   = document.getElementById('btnStop');
-  const $save   = document.getElementById('btnSave');
-  const $status = document.getElementById('status');
-  const $hint   = document.getElementById('hint');
-  const $cycles = document.getElementById('cycles');
+  const $task    = document.getElementById('task');
+  const $start   = document.getElementById('btnStart');
+  const $stop    = document.getElementById('btnStop');
+  const $save    = document.getElementById('btnSave');
+  const $status  = document.getElementById('status');
+  const $hint    = document.getElementById('hint');
+  const $cycles  = document.getElementById('cycles');
+  const $cyclesRow = document.getElementById('cyclesRow');
 
   const setStatus = (s)=> $status.textContent = s;
   const setHint   = (s)=> $hint.textContent   = s;
   const setCycles = (c)=> $cycles.textContent = `Cycles: ${c}/${TARGET_TRIPS}`;
 
+  const isFastTask = (name) =>
+    name.includes('Fast');
+
+  function updateCyclesVisibility(){
+    const show = isFastTask($task.value);
+    $cyclesRow.style.display = show ? 'block' : 'none';
+  }
+
   function resetDetector(){
     lastOut=false; trips=0; state=0; locked=false; lockStart=null; firstSideSign=null;
     setCycles(0);
+    updateCyclesVisibility();
   }
 
   function start(){
@@ -188,21 +191,28 @@
     $start.disabled = false;
     $stop.disabled  = true;
     $save.disabled  = samples.length === 0;
+    updateCyclesVisibility(); // keep UI consistent after stop
   }
 
   // -------------------- Permission flow --------------------
   async function requestAndStart(){
     try {
-      // iOS Safari 需要手势 + 显式授权
+      // iOS Safari requires user gesture + explicit permission
       if (typeof DeviceMotionEvent !== 'undefined' &&
           typeof DeviceMotionEvent.requestPermission === 'function') {
         const r1 = await DeviceMotionEvent.requestPermission();
-        if (r1 !== 'granted') { alert('Motion permission denied. 在 设置→Safari 打开 Motion & Orientation Access。'); return; }
+        if (r1 !== 'granted') {
+          alert('Motion permission denied. Enable “Motion & Orientation Access” in iOS Settings → Safari.');
+          return;
+        }
       }
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         const r2 = await DeviceOrientationEvent.requestPermission();
-        if (r2 !== 'granted') { alert('Orientation permission denied. 在 设置→Safari 打开 Motion & Orientation Access。'); return; }
+        if (r2 !== 'granted') {
+          alert('Orientation permission denied. Enable “Motion & Orientation Access” in iOS Settings → Safari.');
+          return;
+        }
       }
       start();
     } catch (e) {
@@ -214,15 +224,12 @@
   // -------------------- Sensors --------------------
   window.addEventListener('devicemotion', (e) => {
     const now = performance.now();
-    // 优先 accelerationIncludingGravity；不同设备实现不一，这里按原样记录（分析时自处理重力项）
     const a = e.accelerationIncludingGravity || e.acceleration;
     if (a){ last.ax = a.x || 0; last.ay = a.y || 0; last.az = a.z || 0; }
-
-    // rotationRate: alpha(Z)/beta(X)/gamma(Y)，单位 deg/s
     if (e.rotationRate){
-      last.gz = (e.rotationRate.alpha || 0) * DEG;  // -> rad/s
-      last.gx = (e.rotationRate.beta  || 0) * DEG;
-      last.gy = (e.rotationRate.gamma || 0) * DEG;
+      last.gz = (e.rotationRate.alpha || 0) * DEG;  // -> rad/s (around Z)
+      last.gx = (e.rotationRate.beta  || 0) * DEG;  // -> rad/s (around X)
+      last.gy = (e.rotationRate.gamma || 0) * DEG;  // -> rad/s (around Y)
     }
     last.ts = now;
     step(now);
@@ -232,7 +239,7 @@
     last.alpha = e.alpha ?? 0;
     last.beta  = e.beta  ?? 0;
     last.gamma = e.gamma ?? 0;
-    // 近似映射：yaw≈alpha(z)、pitch≈beta(x)、roll≈gamma(y)
+    // Approx mapping: yaw≈alpha(z)、pitch≈beta(x)、roll≈gamma(y)
     last.yaw   = (last.alpha || 0) * DEG;
     last.pitch = (last.beta  || 0) * DEG;
     last.roll  = (last.gamma || 0) * DEG;
@@ -272,7 +279,7 @@
     const t = (now - t0) / 1000.0;
     const rel = relAngles();
 
-    // 记录一帧
+    // record one sample
     samples.push({
       t,
       yaw: rel.yaw, pitch: rel.pitch, roll: rel.roll,
@@ -281,7 +288,7 @@
       alpha: last.alpha, beta: last.beta, gamma: last.gamma
     });
 
-    // 任务状态机
+    // detector
     let finished = false;
     const task = $task.value;
 
@@ -318,7 +325,7 @@
 
   // ---- detectors ----
   function slowSequenceDone(x){
-    // 任一侧 → 回中 → 另一侧 → 回中
+    // any side → center → other side → center
     switch (state){
       case 0:
         if (Math.abs(x) > THRESH){ firstSideSign = x>0 ? +1 : -1; state = 1; }
@@ -377,21 +384,14 @@
     const blob = new Blob([s], {type:'text/csv'});
     const file = new File([blob], filename, {type:'text/csv'});
 
-    // 优先调用 iOS/Android 的系统分享（可 AirDrop）
+    // Prefer native share (AirDrop etc.)
     if (navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share){
       try{
-        await navigator.share({
-          files:[file],
-          title:'Chest IMU CSV',
-          text:'Spine motion session data'
-        });
-        return; // 分享成功则结束
-      }catch(err){
-        // 用户取消或不支持，继续走下载
-        console.warn('Share error or canceled:', err);
-      }
+        await navigator.share({ files:[file], title:'Chest IMU CSV', text:'Spine motion session data' });
+        return;
+      }catch(err){ console.warn('Share error or canceled:', err); }
     }
-    // 回退：触发下载
+    // Fallback: download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -428,9 +428,16 @@
   }
 
   // -------------------- Bind UI --------------------
+  $task.addEventListener('change', () => {
+    updateCyclesVisibility();
+    setHint(phase === 'running' ? runningHint($task.value) : startHint($task.value));
+  });
   document.getElementById('btnStart').addEventListener('click', requestAndStart);
   document.getElementById('btnStop' ).addEventListener('click', stop);
   document.getElementById('btnSave' ).addEventListener('click', saveCSV);
+
+  // initialize
+  updateCyclesVisibility();
 })();
 </script>
 </body>
