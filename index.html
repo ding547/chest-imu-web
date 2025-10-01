@@ -153,12 +153,13 @@
   const $cycles  = document.getElementById('cycles');
   const $cyclesRow = document.getElementById('cyclesRow');
 
+  let prevTaskValue = $task.value;
+
   const setStatus = (s)=> $status.textContent = s;
   const setHint   = (s)=> $hint.textContent   = s;
   const setCycles = (c)=> $cycles.textContent = `Cycles: ${c}/${TARGET_TRIPS}`;
 
-  const isFastTask = (name) =>
-    name.includes('Fast');
+  const isFastTask = (name) => name.includes('Fast');
 
   function updateCyclesVisibility(){
     const show = isFastTask($task.value);
@@ -188,10 +189,19 @@
   function stop(){
     phase = 'idle';
     setStatus('Idle');
-    $start.disabled = false;
+    $start.disabled = false;       // <- ensure Start re-enabled after stop
     $stop.disabled  = true;
     $save.disabled  = samples.length === 0;
-    updateCyclesVisibility(); // keep UI consistent after stop
+    updateCyclesVisibility();
+  }
+
+  function finish(){
+    phase = 'done';
+    setStatus('Done');
+    setHint('Finished. Tap “Save CSV”.');
+    $save.disabled = false;
+    $stop.disabled = true;
+    $start.disabled = false;       // <- allow immediate next start
   }
 
   // -------------------- Permission flow --------------------
@@ -315,11 +325,7 @@
     }
 
     if (finished){
-      phase = 'done';
-      setStatus('Done');
-      setHint('Finished. Tap “Save CSV”.');
-      $save.disabled = false;
-      $stop.disabled = true;
+      finish();   // <- new helper enables Start again
     }
   }
 
@@ -376,7 +382,8 @@
   // -------------------- Save / Share CSV --------------------
   async function saveCSV(){
     if (!samples.length) return;
-    let s = 't,yaw,pitch,roll,ax,ay,az,gx,gy,gz,alpha,beta,gamma\n';
+    // header with units
+    let s = 't(s),yaw(rad),pitch(rad),roll(rad),ax(m/s^2),ay(m/s^2),az(m/s^2),gx(rad/s),gy(rad/s),gz(rad/s),alpha(deg),beta(deg),gamma(deg)\n';
     for (const v of samples){
       s += `${v.t.toFixed(6)},${v.yaw},${v.pitch},${v.roll},${v.ax},${v.ay},${v.az},${v.gx},${v.gy},${v.gz},${v.alpha},${v.beta},${v.gamma}\n`;
     }
@@ -429,9 +436,29 @@
 
   // -------------------- Bind UI --------------------
   $task.addEventListener('change', () => {
-    updateCyclesVisibility();
-    setHint(phase === 'running' ? runningHint($task.value) : startHint($task.value));
+    // If running, confirm to stop
+    if (phase === 'running'){
+      const ok = confirm('Switching task will stop current recording. Continue?');
+      if (!ok){
+        // revert selection
+        $task.value = prevTaskValue;
+        return;
+      }
+      // stop current recording first
+      stop();
+    }
+    prevTaskValue = $task.value;
+
+    // For idle/done states: reset detector and allow immediate start
+    resetDetector();
+    setStatus('Idle');
+    setHint(startHint($task.value));
+    $start.disabled = false;   // <- make Start clickable after changing task
+    $stop.disabled  = true;
+    // keep $save enabled if there are samples from previous run
+    $save.disabled  = samples.length === 0;
   });
+
   document.getElementById('btnStart').addEventListener('click', requestAndStart);
   document.getElementById('btnStop' ).addEventListener('click', stop);
   document.getElementById('btnSave' ).addEventListener('click', saveCSV);
