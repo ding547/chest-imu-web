@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Chest IMU Web — Spine Tasks</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 16px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  label { font-size:14px; }
+  select, button { font-size:16px; padding:8px 12px; }
+  .hint { color:#555; font-size:13px; line-height:1.3; }
+  .status { font-weight:600; margin:6px 0; }
+  .pill { padding:2px 8px; border-radius:999px; background:#f0f0f0; display:inline-block; }
+</style>
+</head>
+<body>
+<h2>Spine Motion (Web)</h2>
+
+<div class="row">
+  <label>Task
+    <select id="task">
+      <option>Slow Lateral Range</option>
+      <option>Slow Axial Range</option>
+      <option>Slow Sagittal Range</option>
+      <option>Fast Lateral Continuous</option>
+      <option>Fast Axial Continuous</option>
+      <option>Fast Sagittal Continuous</option>
+      <option>Fast Sagittal (Twist Right)</option>
+      <option>Fast Sagittal (Twist Left)</option>
+    </select>
+  </label>
+  <button id="btnStart">Request Permission & Start</button>
+  <button id="btnStop" disabled>Stop</button>
+  <button id="btnSave" disabled>Save CSV</button>
+</div>
+
+<div class="status" id="status">Idle</div>
+<div class="hint" id="hint">Place phone at mid-chest, screen facing forward. Keep it steady.</div>
+<div class="hint">Sampling uses DeviceMotion/DeviceOrientation (~60 Hz). Data stays on device.</div>
+<div class="hint"><span class="pill" id="cycles">Cycles: 0/6</span></div>
+
+<script>
+(() => {
+  // -------------------- State --------------------
+  const TWO_PI = Math.PI * 2;
+  const DEG = Math.PI / 180.0; // deg -> rad
+  const BAND   = 6  * DEG;     // near-center band (~6°)
+  const THRESH = 12 * DEG;     // beyond threshold (~12°)
+  const TWIST  = 15 * DEG;     // twist lock (~15°)
+  const STILL_GYRO = 0.07;     // rad/s magnitude
+  const STILL_WINDOW = 1000;   // ms
+  const TARGET_TRIPS = 6;
+
+  let phase = 'idle'; // idle -> waitingStill -> running -> done
+  let neutral = { yaw:0, pitch:0, roll:0 };
+  let t0 = null;
+  let stillSince = null;
+
+  // task detector runtime
+  let lastOut = false, trips = 0, state = 0, locked = false, lockStart = null, firstSideSign = null;
+
+  // latest frames
+  let last = {
+    ts: 0,
+    // motion:
+    ax: 0, ay: 0, az: 0,          // m/s^2 ? Browser gives m/s^2 for includingGravity=false; Safari uses g sometimes; we keep raw.
+    gx: 0, gy: 0, gz: 0,          // rad/s (converted from deg/s)
+    // orientation:
+    alpha: 0, beta: 0, gamma: 0,  // deg
+    yaw: 0, pitch: 0, roll: 0     // rad (computed from alpha/beta/gamma)
+  };
+
+  // samples to export
+  let samples = [];
+
+  // UI
+  const $task   = document.getElementById('task');
+  const $start  = document.getElementById('btnStart');
+  const $stop   = document.getElementById('btnStop');
+  const $save   = document.getElementById('btnSave');
+  const $status = document.getElementById('status');
+  const $hint   = document.getElementById('hint');
+  const $cycles = document.getElementById('cycles');
+
+  function setStatus(s){ $status.textContent = s; }
+  function setHint(s){ $hint.textContent = s; }
+  function setCycles(c){ $cycles.textContent = `Cycles: ${c}/${TARGET_TRIPS}`; }
+
+  function resetDetector(){
+    lastOut=false; trips=0; state=0; locked=false; lockStart=null; firstSideSign=null;
+    setCycles(0);
+  }
+
+  function start(){
+    samples = [];
+    resetDetector();
+    phase = 'waitingStill';
+    setStatus('Waiting for stillness…');
+    setHint(startHint($task.value));
+    t0 = performance.now();
+    stillSince = null;
+
+    $start.disabled = true;
+    $stop.disabled = false;
+    $save.disabled = true;
+  }
+
+  function stop(){
+    phase = 'idle';
+    setStatus('Idle');
+    $start.disabled = false;
+    $stop.disabled = true;
+    $save.disabled = samples.length === 0;
+  }
+
+  // -------------------- Permission & Events --------------------
+  async function requestAndStart(){
+    try {
+      // iOS requires user gesture + permission
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        const r1 = await DeviceMotionEvent.requestPermission();
+        if (r1 !== 'granted') { alert('Motion permission denied'); return; }
+      }
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const r2 = await DeviceOrientationEvent.requestPermission();
+        if (r2 !== 'granted') { alert('Orientation permission denied'); return; }
+      }
+      start();
+    } catch (e) {
+      console.error(e);
+      alert('Permission error: ' + e.message);
+    }
+  }
+
+  window.addEventListener('devicemotion', (e) => {
+    const now = performance.now();
+    // acceleration (prefer without gravity if available)
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if (a) { last.ax = a.x || 0; last.ay = a.y || 0; last.az = a.z || 0; }
+    // rotationRate: alpha/beta/gamma in deg/s around Z/X/Y (spec)
+    if (e.rotationRate) {
+      // Convert to rad/s and map to (gx,gy,gz) ≈ (X,Y,Z)
+      // Spec: alpha ≈ around Z, beta ≈ around X, gamma ≈ around Y
+      last.gz = (e.rotationRate.alpha || 0) * DEG;
+      last.gx = (e.rotationRate.beta  || 0) * DEG;
+      last.gy = (e.rotationRate.gamma || 0) * DEG;
+    }
+    last.ts = now;
+
+    step(now);
+  });
+
+  window.addEventListener('deviceorientation', (e) => {
+    // alpha: 0..360 (z), beta: -180..180 (x), gamma: -90..90 (y)
+    last.alpha = e.alpha ?? 0;
+    last.beta  = e.beta  ?? 0;
+    last.gamma = e.gamma ?? 0;
+
+    // Convert to a yaw/pitch/roll (approx). We adopt ZYX-style mapping:
+    // yaw≈alpha, pitch≈beta, roll≈gamma (all in degrees -> rad).
+    last.yaw   = (last.alpha || 0) * DEG;
+    last.pitch = (last.beta  || 0) * DEG;
+    last.roll  = (last.gamma || 0) * DEG;
+  });
+
+  // -------------------- Logic loop --------------------
+  function isStill(){
+    const gmag = Math.hypot(last.gx, last.gy, last.gz);
+    return gmag < STILL_GYRO;
+  }
+
+  function relAngles(){
+    return {
+      yaw:   wrapRad(last.yaw   - neutral.yaw),
+      pitch: wrapRad(last.pitch - neutral.pitch),
+      roll:  wrapRad(last.roll  - neutral.roll)
+    };
+  }
+  function wrapRad(x){
+    // wrap to [-pi, pi]
+    while (x >  Math.PI) x -= TWO_PI;
+    while (x < -Math.PI) x += TWO_PI;
+    return x;
+  }
+
+  function step(now){
+    if (phase === 'waitingStill'){
+      if (isStill()){
+        if (!stillSince) stillSince = now;
+        if (now - stillSince >= STILL_WINDOW){
+          neutral = { yaw: last.yaw, pitch: last.pitch, roll: last.roll };
+          phase = 'running';
+          setStatus('Recording…');
+          setHint(runningHint($task.value));
+          t0 = now;
+        }
+      } else {
+        stillSince = null;
+      }
+      return;
+    }
+
+    if (phase !== 'running') return;
+
+    const t = (now - t0) / 1000.0; // seconds
+    const rel = relAngles();
+
+    // record sample (keep raw browser angles和IMU，便于回放)
+    samples.push({
+      t,
+      yaw: rel.yaw, pitch: rel.pitch, roll: rel.roll,
+      ax: last.ax, ay: last.ay, az: last.az,
+      gx: last.gx, gy: last.gy, gz: last.gz,
+      alpha: last.alpha, beta: last.beta, gamma: last.gamma
+    });
+
+    // update detector
+    let finished = false;
+    const task = $task.value;
+
+    if (task === 'Slow Lateral Range')      finished = slowSequenceDone(rel.roll);
+    else if (task === 'Slow Axial Range')   finished = slowSequenceDone(rel.yaw);
+    else if (task === 'Slow Sagittal Range')finished = slowSagittalDone(rel.pitch);
+    else if (task === 'Fast Lateral Continuous') {
+      const r = cycle(rel.roll); finished = r.done; setCycles(r.trips);
+    } else if (task === 'Fast Axial Continuous') {
+      const r = cycle(rel.yaw); finished = r.trips>=TARGET_TRIPS; setCycles(r.trips);
+    } else if (task === 'Fast Sagittal Continuous') {
+      const r = cycle(rel.pitch); finished = r.trips>=TARGET_TRIPS; setCycles(r.trips);
+    } else if (task === 'Fast Sagittal (Twist Right)') {
+      const r = twistThenCycles(rel.yaw, rel.pitch, +1);
+      finished = r.done; setCycles(r.trips);
+      setHint(r.locked ? 'Locked right: fast crunch ×6' : 'Twist RIGHT ≥15° & hold 1s');
+    } else if (task === 'Fast Sagittal (Twist Left)') {
+      const r = twistThenCycles(rel.yaw, rel.pitch, -1);
+      finished = r.done; setCycles(r.trips);
+      setHint(r.locked ? 'Locked left: fast crunch ×6' : 'Twist LEFT ≥15° & hold 1s');
+    }
+
+    if (finished){
+      phase = 'done';
+      setStatus('Done');
+      setHint('Finished. Tap “Save CSV”.');
+      $save.disabled = false;
+      $stop.disabled = true;
+    }
+  }
+
+  // ---- detectors (与原生版一致的规则) ----
+  function slowSequenceDone(x){
+    // 任一侧 -> 回中 -> 另一侧 -> 回中
+    switch (state){
+      case 0:
+        if (Math.abs(x) > THRESH){ firstSideSign = x > 0 ? +1 : -1; state = 1; }
+        break;
+      case 1:
+        if (Math.abs(x) < BAND){ state = 2; }
+        break;
+      case 2:
+        if (firstSideSign && ((firstSideSign>0 && x < -THRESH) || (firstSideSign<0 && x > THRESH))){ state = 3; }
+        break;
+      case 3:
+        if (Math.abs(x) < BAND){ return true; }
+        break;
+    }
+    return false;
+  }
+  function slowSagittalDone(pitch){
+    switch (state){
+      case 0: if (pitch > THRESH){ state = 1; } break;
+      case 1: if (Math.abs(pitch) < BAND){ return true; }
+    }
+    return false;
+  }
+  function cycle(x){
+    if (!lastOut){
+      if (Math.abs(x) > THRESH) lastOut = true;
+    } else {
+      if (Math.abs(x) < BAND){ lastOut = false; trips += 1; }
+    }
+    return { trips, done: trips >= TARGET_TRIPS };
+  }
+  function twistThenCycles(yaw, pitch, dir){
+    if (!locked){
+      const ok = dir>0 ? (yaw > TWIST) : (yaw < -TWIST);
+      if (ok){
+        if (!lockStart) lockStart = performance.now();
+        if (performance.now() - lockStart >= 1000){
+          locked = true; lastOut = false; trips = 0;
+        }
+      } else lockStart = null;
+      return { locked:false, trips, done:false };
+    } else {
+      const r = cycle(pitch);
+      return { locked:true, trips:r.trips, done:r.done };
+    }
+  }
+
+  // ---- CSV ----
+  function saveCSV(){
+    if (!samples.length) return;
+    let s = 't,yaw,pitch,roll,ax,ay,az,gx,gy,gz,alpha,beta,gamma\n';
+    for (const v of samples){
+      s += `${v.t.toFixed(6)},${v.yaw},${v.pitch},${v.roll},${v.ax},${v.ay},${v.az},${v.gx},${v.gy},${v.gz},${v.alpha},${v.beta},${v.gamma}\n`;
+    }
+    const blob = new Blob([s], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ChestIMU_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
+  }
+
+  // ---- Hints ----
+  function startHint(task){
+    switch (task){
+      case 'Slow Lateral Range': return 'Stand still (1s). Then: side → center → other side → center.';
+      case 'Slow Axial Range'  : return 'Stand still (1s). Then: twist side → center → other side → center.';
+      case 'Slow Sagittal Range':return 'Stand still (1s). Then: crunch forward → back to center.';
+      case 'Fast Lateral Continuous' : return 'Stand still (1s). Then: fast lateral ×6.';
+      case 'Fast Axial Continuous'   : return 'Stand still (1s). Then: fast axial twist ×6.';
+      case 'Fast Sagittal Continuous': return 'Stand still (1s). Then: fast crunch ×6.';
+      case 'Fast Sagittal (Twist Right)': return 'Stand still (1s). Then: twist RIGHT ≥15° & hold 1s → fast crunch ×6.';
+      case 'Fast Sagittal (Twist Left)':  return 'Stand still (1s). Then: twist LEFT ≥15° & hold 1s → fast crunch ×6.';
+    }
+    return '';
+  }
+  function runningHint(task){
+    switch (task){
+      case 'Slow Lateral Range': return 'Go: side → center → other side → center.';
+      case 'Slow Axial Range'  : return 'Go: side twist → center → other side → center.';
+      case 'Slow Sagittal Range':return 'Go: crunch forward → back to center.';
+      case 'Fast Lateral Continuous' : return 'Go fast: lateral ×6.';
+      case 'Fast Axial Continuous'   : return 'Go fast: axial twist ×6.';
+      case 'Fast Sagittal Continuous': return 'Go fast: crunch ×6.';
+      case 'Fast Sagittal (Twist Right)': return 'Twist RIGHT & hold 1s to lock, then fast crunch ×6.';
+      case 'Fast Sagittal (Twist Left)' : return 'Twist LEFT & hold 1s to lock, then fast crunch ×6.';
+    }
+    return '';
+  }
+
+  // ---- Bind UI ----
+  $start.addEventListener('click', requestAndStart);
+  $stop.addEventListener('click', stop);
+  $save.addEventListener('click', saveCSV);
+
+})();
+</script>
+</body>
+</html>
