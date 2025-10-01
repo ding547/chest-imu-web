@@ -59,6 +59,18 @@
     no-repeat right 12px center/16px 10px;
   }
 
+  /* small selector row (for twist threshold) */
+  .row-inline{
+    display:flex; align-items:center; gap:8px; justify-content:center;
+    margin-top:10px; flex-wrap:wrap;
+  }
+  .selector-sm{
+    appearance:none; font-size:15px; font-weight:600;
+    padding:8px 10px; min-width:100px;
+    border:1px solid var(--border); border-radius:10px; background:#fff;
+  }
+  .label-sm{ font-size:13px; color:#666; }
+
   /* buttons */
   .btn{ font-size:17px; font-weight:600; padding:12px 18px; min-width:170px;
         border-radius:12px; border:1px solid transparent; cursor:pointer;
@@ -137,6 +149,17 @@
         </select>
       </div>
 
+      <!-- Twist threshold (only for twist tasks) -->
+      <div id="twistRow" class="row-inline" style="display:none;">
+        <span class="label-sm">Twist lock threshold</span>
+        <select id="twistDeg" class="selector-sm" title="Twist lock threshold">
+          <option value="5">5°</option>
+          <option value="8" selected>8°</option>
+          <option value="12">12°</option>
+          <option value="15">15°</option>
+        </select>
+      </div>
+
       <!-- Buttons -->
       <div class="btns vspace">
         <button id="btnStart" class="btn btn-primary">Request Permission & Start</button>
@@ -191,7 +214,7 @@
   const DEG = Math.PI / 180.0;  // deg -> rad
   const BAND   = 6  * DEG;      // near-center band (~6°)
   const THRESH = 12 * DEG;      // beyond threshold (~12°)
-  const TWIST  = 15 * DEG;      // twist lock (~15°)
+  // NOTE: twist 阈值改为“动态”：通过 UI 选择角度（5/8/12/15°），实时转为 TWIST_RAD 使用
   const STILL_GYRO = 0.07;      // rad/s magnitude
   const STILL_WINDOW = 1000;    // ms
   const TARGET_TRIPS = 6;
@@ -203,7 +226,7 @@
   let stillSince = null;
 
   // detector runtime
-  let lastOut=false, trips=0, state=0, locked=false, lockStart=null, firstSideSign=null;
+  let lastOut=false, trips=0, state=0, locked=false, firstSideSign=null;
 
   // latest readings
   let last = {
@@ -230,22 +253,30 @@
   const $dotGX = document.getElementById('dotGX');
   const $dotGY = document.getElementById('dotGY');
   const $dotGZ = document.getElementById('dotGZ');
+  const $twistRow = document.getElementById('twistRow');
+  const $twistDeg = document.getElementById('twistDeg');
 
   let prevTaskValue = $task.value;
+  let twistDeg = parseFloat($twistDeg.value) || 8; // default 8°
+  let TWIST_RAD = twistDeg * DEG;
 
   const setStatus = (s)=> $status.textContent = s;
   const setHint   = (s)=> $hint.textContent   = s;
   const setCycles = (c)=> $cycles.textContent = `Cycles: ${c}/${TARGET_TRIPS}`;
 
   const isFastTask = (name) => name.includes('Fast');
+  const isTwistTask = (name) => name.indexOf('Fast Sagittal (Twist') === 0;
 
   function updateCyclesVisibility(){
     const show = isFastTask($task.value);
     $cyclesRow.style.display = show ? 'block' : 'none';
   }
+  function updateTwistRowVisibility(){
+    $twistRow.style.display = isTwistTask($task.value) ? 'flex' : 'none';
+  }
 
   function resetDetector(){
-    lastOut=false; trips=0; state=0; locked=false; lockStart=null; firstSideSign=null;
+    lastOut=false; trips=0; state=0; locked=false; firstSideSign=null;
     setCycles(0);
     updateCyclesVisibility();
   }
@@ -280,10 +311,8 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.stop(t0 + dur);
   }
-  function beepStart(){ // “滴”
-    playTone(1100, 0.08, 'sine', 0.06);
-  }
-  function dingFinish(){ // “叮”
+  function beepStart(){ playTone(1100, 0.08, 'sine', 0.06); }   // “滴”
+  function dingFinish(){                                         // “叮”
     playTone(900, 0.09, 'triangle', 0.06);
     setTimeout(()=> playTone(1350, 0.12, 'triangle', 0.06), 100);
   }
@@ -387,7 +416,7 @@
     $stop.disabled  = false;
     $save.disabled  = true;
 
-    // chart: go active but真正开始记录在进入 running 时
+    // chart: go active; 真正开始记录在进入 running 时
     chartActive = true;
     resetBuffer();
 
@@ -551,17 +580,17 @@
     } else if (task === 'Fast Sagittal Continuous') {
       const r = cycle(rel.pitch); finished = r.done; if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
     } else if (task === 'Fast Sagittal (Twist Right)') {
-      const r = twistThenCycles(rel.yaw, rel.pitch, +1);
+      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, +1); // 修改后的逻辑
       finished = r.done;
-      if (r.locked && !lockAnnounced){ haptic.medium(); lockAnnounced = true; }
+      if (r.justLocked){ beepStart(); haptic.medium(); } // 扭转达阈值时提示“滴”
       if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
-      setHint(r.locked ? 'Locked right: fast crunch ×6' : 'Twist RIGHT ≥15° & hold 1s');
+      setHint(r.locked ? `Locked right (≥${twistDeg}°): fast crunch ×6` : `Twist RIGHT ≥${twistDeg}° then fast crunch ×6`);
     } else if (task === 'Fast Sagittal (Twist Left)') {
-      const r = twistThenCycles(rel.yaw, rel.pitch, -1);
+      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, -1); // 修改后的逻辑
       finished = r.done;
-      if (r.locked && !lockAnnounced){ haptic.medium(); lockAnnounced = true; }
+      if (r.justLocked){ beepStart(); haptic.medium(); }
       if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
-      setHint(r.locked ? 'Locked left: fast crunch ×6' : 'Twist LEFT ≥15° & hold 1s');
+      setHint(r.locked ? `Locked left (≥${twistDeg}°): fast crunch ×6` : `Twist LEFT ≥${twistDeg}° then fast crunch ×6`);
     }
 
     if (finished){
@@ -605,19 +634,25 @@
     }
     return { trips, done: trips >= TARGET_TRIPS };
   }
-  function twistThenCycles(yaw, pitch, dir){
+
+  // ---- NEW: twist -> then count sagittal crunch cycles ----
+  // 改动点：
+  // 1) 使用 UI 可调的 TWIST_RAD（默认 8°），无需 1 秒锁定；达到阈值立即“锁定”
+  // 2) 锁定瞬间发出“滴”声 + 轻中震动，然后进入 pitch 的 cycle 计数，至 6 次完成
+  function twistThenCrunchCycles(yaw, pitch, dir){
+    let justLocked = false;
     if (!locked){
-      const ok = dir>0 ? (yaw > TWIST) : (yaw < -TWIST);
-      if (ok){
-        if (!lockStart) lockStart = performance.now();
-        if (performance.now() - lockStart >= 1000){
-          locked = true; lastOut = false; trips = 0;
-        }
-      } else lockStart = null;
-      return { locked:false, trips, done:false };
+      const reached = dir>0 ? (yaw > TWIST_RAD) : (yaw < -TWIST_RAD);
+      if (reached){
+        locked = true;
+        lastOut = false;
+        trips = 0;
+        justLocked = true; // 触发提示音与震动
+      }
+      return { locked:false, justLocked, trips, done:false };
     } else {
       const r = cycle(pitch);
-      return { locked:true, trips:r.trips, done:r.done };
+      return { locked:true, justLocked:false, trips:r.trips, done:r.done };
     }
   }
 
@@ -660,8 +695,8 @@
       case 'Fast Lateral Continuous' : return 'Stand still (1s). Then: fast lateral ×6.';
       case 'Fast Axial Continuous'   : return 'Stand still (1s). Then: fast axial twist ×6.';
       case 'Fast Sagittal Continuous': return 'Stand still (1s). Then: fast crunch ×6.';
-      case 'Fast Sagittal (Twist Right)': return 'Stand still (1s). Then: twist RIGHT ≥15° & hold 1s → fast crunch ×6.';
-      case 'Fast Sagittal (Twist Left)' : return 'Stand still (1s). Then: twist LEFT ≥15° & hold 1s → fast crunch ×6.';
+      case 'Fast Sagittal (Twist Right)': return `Stand still (1s). Then: twist RIGHT ≥${twistDeg}° → fast crunch ×6.`;
+      case 'Fast Sagittal (Twist Left)' : return `Stand still (1s). Then: twist LEFT ≥${twistDeg}° → fast crunch ×6.`;
     }
     return '';
   }
@@ -673,8 +708,8 @@
       case 'Fast Lateral Continuous': return 'Go fast: lateral ×6.';
       case 'Fast Axial Continuous'  : return 'Go fast: axial twist ×6.';
       case 'Fast Sagittal Continuous':return 'Go fast: crunch ×6.';
-      case 'Fast Sagittal (Twist Right)': return 'Twist RIGHT & hold 1s to lock, then fast crunch ×6.';
-      case 'Fast Sagittal (Twist Left)' : return 'Twist LEFT & hold 1s to lock, then fast crunch ×6.';
+      case 'Fast Sagittal (Twist Right)': return `Twist RIGHT to lock (≥${twistDeg}°), then fast crunch ×6.`;
+      case 'Fast Sagittal (Twist Left)' : return `Twist LEFT to lock (≥${twistDeg}°), then fast crunch ×6.`;
     }
     return '';
   }
@@ -692,6 +727,7 @@
     prevTaskValue = $task.value;
 
     resetDetector();
+    updateTwistRowVisibility();
     setStatus('Idle');
     setHint(startHint($task.value));
     $start.disabled = false;
@@ -703,16 +739,26 @@
     haptic.light();
   });
 
+  $twistDeg.addEventListener('change', () => {
+    twistDeg = parseFloat($twistDeg.value) || 8;
+    TWIST_RAD = twistDeg * DEG;
+    // 更新提示语（不改变状态）
+    setHint(phase === 'running' ? runningHint($task.value) : startHint($task.value));
+  });
+
   document.getElementById('btnStart').addEventListener('click', requestAndStart);
   document.getElementById('btnStop' ).addEventListener('click', () => { stop(); haptic.light(); });
   document.getElementById('btnSave' ).addEventListener('click', saveCSV);
 
   // initialize
   updateCyclesVisibility();
+  updateTwistRowVisibility();
   // set initial legend dots to idle colors
   $dotGX.style.background = getComputedStyle(document.documentElement).getPropertyValue('--gxIdle').trim();
   $dotGY.style.background = getComputedStyle(document.documentElement).getPropertyValue('--gyIdle').trim();
   $dotGZ.style.background = getComputedStyle(document.documentElement).getPropertyValue('--gzIdle').trim();
+  // init TWIST_RAD
+  TWIST_RAD = twistDeg * DEG;
 })();
 </script>
 </body>
