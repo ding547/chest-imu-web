@@ -31,26 +31,15 @@
     font-family:-apple-system, system-ui, "SF Pro Text","SF Pro Display", Segoe UI, Roboto, Arial, sans-serif;
     background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;
   }
-  /* iOS large title header */
-  .header{
-    position:sticky; top:0; z-index:5;
-    background:linear-gradient(#f8f8f8,#fff);
-    padding:20px 16px 10px; border-bottom:1px solid #eee;
-  }
+  .header{ position:sticky; top:0; z-index:5; background:linear-gradient(#f8f8f8,#fff); padding:20px 16px 10px; border-bottom:1px solid #eee; }
   .large-title{ font-size:34px; font-weight:700; letter-spacing:.2px; text-align:center; }
-
-  /* centered card */
   .wrap{ max-width:740px; margin:18px auto; padding:0 16px; }
   .card{ background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 18px; }
-
-  /* layout */
   .center{text-align:center;} .vspace{margin-top:14px;}
   .hint{ color:var(--sub); font-size:14px; line-height:1.35; }
   .status{ font-weight:700; font-size:18px; margin-top:10px; }
   .pill{ padding:4px 10px; border-radius:999px; background:var(--chip); display:inline-block; font-size:13px; }
   .pill.ok{ background:#e7f3ff; color:#0a5bd8; }
-
-  /* selector */
   .selector{
     appearance:none; font-size:22px; font-weight:600;
     padding:10px 16px; min-width:320px; max-width:100%;
@@ -58,20 +47,13 @@
     url("data:image/svg+xml,%3Csvg viewBox='0 0 16 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 2l6 6 6-6' stroke='%23999' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
     no-repeat right 12px center/16px 10px;
   }
-
-  /* small selector row (for twist threshold) */
-  .row-inline{
-    display:flex; align-items:center; gap:8px; justify-content:center;
-    margin-top:10px; flex-wrap:wrap;
-  }
+  .row-inline{ display:flex; align-items:center; gap:8px; justify-content:center; margin-top:10px; flex-wrap:wrap; }
   .selector-sm{
     appearance:none; font-size:15px; font-weight:600;
     padding:8px 10px; min-width:100px;
     border:1px solid var(--border); border-radius:10px; background:#fff;
   }
   .label-sm{ font-size:13px; color:#666; }
-
-  /* buttons */
   .btn{ font-size:17px; font-weight:600; padding:12px 18px; min-width:170px;
         border-radius:12px; border:1px solid transparent; cursor:pointer;
         transition:.15s transform ease, .2s background ease; display:inline-block; }
@@ -80,50 +62,18 @@
   .btn-secondary{ background:var(--chip); color:#111; border-color:var(--border); }
   .btn[disabled]{ opacity:.5; cursor:default; transform:none }
   .btns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
-
   footer{ color:#8e8e93; font-size:12px; text-align:center; padding:16px 0 28px; }
-  /* accessibility */
   [aria-live]{min-height:1.4em}
-
-  /* chart card */
-  .chart-card{
-    margin-top:16px;
-    background:#fff; border-radius:var(--radius); box-shadow:var(--shadow);
-    padding:16px;
-  }
-  .chart-title{
-    font-weight:700; font-size:16px; text-align:center; margin-bottom:10px;
-  }
-  .legend{
-    display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;
-    font-size:13px; color:#333; margin-bottom:8px;
-  }
-  .legend .dot{
-    display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px;
-  }
-  .axis-labels{
-    display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:6px;
-  }
+  .chart-card{ margin-top:16px; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
+  .chart-title{ font-weight:700; font-size:16px; text-align:center; margin-bottom:10px; }
+  .legend{ display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap; font-size:13px; color:#333; margin-bottom:8px; }
+  .legend .dot{ display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; }
+  .axis-labels{ display:flex; justify-content:space-between; font-size:12px; color:#666; margin-top:6px; }
   canvas{ width:100%; height:180px; display:block; border-radius:12px; background:#fff; }
-
-  /* finish overlay (Apple-like check) */
-  .overlay{
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-    pointer-events:none; opacity:0; transition:.25s opacity ease;
-  }
+  .overlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:0; transition:.25s opacity ease; }
   .overlay.show{ opacity:1; }
-  .check-card{
-    background:#fff; border-radius:24px; box-shadow:0 18px 40px rgba(0,0,0,.18);
-    padding:22px 26px; display:flex; align-items:center; gap:12px;
-    border:1px solid rgba(0,0,0,.06);
-  }
-  .check-icon{
-    width:28px; height:28px; display:inline-block;
-    background:#34c759; border-radius:999px; color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);
-    font-weight:800;
-  }
+  .check-card{ background:#fff; border-radius:24px; box-shadow:0 18px 40px rgba(0,0,0,.18); padding:22px 26px; display:flex; align-items:center; gap:12px; border:1px solid rgba(0,0,0,.06); }
+  .check-icon{ width:28px; height:28px; display:inline-block; background:#34c759; border-radius:999px; color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); font-weight:800; }
   .check-text{ font-weight:700; font-size:16px; color:#111; }
 </style>
 </head>
@@ -146,6 +96,7 @@
           <option>Fast Sagittal Continuous</option>
           <option>Fast Sagittal (Twist Right)</option>
           <option>Fast Sagittal (Twist Left)</option>
+          <option>Test</option><!-- 🔥 新增：自由模式 -->
         </select>
       </div>
 
@@ -212,9 +163,8 @@
   // -------------------- Constants --------------------
   const TWO_PI = Math.PI * 2;
   const DEG = Math.PI / 180.0;  // deg -> rad
-  const BAND   = 6  * DEG;      // near-center band (~6°)
-  const THRESH = 12 * DEG;      // beyond threshold (~12°)
-  // NOTE: twist 阈值改为“动态”：通过 UI 选择角度（5/8/12/15°），实时转为 TWIST_RAD 使用
+  const BAND   = 6  * DEG;      // ~6°
+  const THRESH = 12 * DEG;      // ~12°
   const STILL_GYRO = 0.07;      // rad/s magnitude
   const STILL_WINDOW = 1000;    // ms
   const TARGET_TRIPS = 6;
@@ -225,7 +175,7 @@
   let t0 = null;
   let stillSince = null;
 
-  // detector runtime
+  // detector state
   let lastOut=false, trips=0, state=0, locked=false, firstSideSign=null;
 
   // latest readings
@@ -268,7 +218,7 @@
   const isTwistTask = (name) => name.indexOf('Fast Sagittal (Twist') === 0;
 
   function updateCyclesVisibility(){
-    const show = isFastTask($task.value);
+    const show = isFastTask($task.value) && $task.value !== 'Test';
     $cyclesRow.style.display = show ? 'block' : 'none';
   }
   function updateTwistRowVisibility(){
@@ -290,7 +240,7 @@
     double:()=> vibrate([20, 60, 20]) // for finish
   };
 
-  // -------------------- Audio (beep/ding) --------------------
+  // -------------------- Audio --------------------
   let audioCtx = null;
   function ensureAudio(){
     if (!audioCtx) {
@@ -311,8 +261,8 @@
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.stop(t0 + dur);
   }
-  function beepStart(){ playTone(1100, 0.08, 'sine', 0.06); }   // “滴”
-  function dingFinish(){                                         // “叮”
+  function beepStart(){ playTone(1100, 0.08, 'sine', 0.06); }
+  function dingFinish(){
     playTone(900, 0.09, 'triangle', 0.06);
     setTimeout(()=> playTone(1350, 0.12, 'triangle', 0.06), 100);
   }
@@ -332,7 +282,6 @@
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
-  // buffer: last 10 seconds @ ~60Hz -> ~600 samples
   const WINDOW_SEC = 10;
   const MAX_S = 600;
   let buf = [];
@@ -342,7 +291,6 @@
   }
   function resetBuffer(){ buf = []; }
 
-  // auto-scale with smoothing
   let yRange = 2.0;    // initial ±2 rad/s
   function updateScale(){
     if (buf.length < 2) return;
@@ -374,6 +322,7 @@
     const colGX = chartActive ? cssVar('--gx') : cssVar('--gxIdle');
     const colGY = chartActive ? cssVar('--gy') : cssVar('--gyIdle');
     const colGZ = chartActive ? cssVar('--gz') : cssVar('--gzIdle');
+
     // update legend dots
     $dotGX.style.background = colGX;
     $dotGY.style.background = colGY;
@@ -411,15 +360,12 @@
     t0 = performance.now();
     stillSince = null;
 
-    // UI
     $start.disabled = true;
     $stop.disabled  = false;
     $save.disabled  = true;
 
-    // chart: go active; 真正开始记录在进入 running 时
-    chartActive = true;
+    chartActive = true; // 等待/运行阶段彩色
     resetBuffer();
-
     haptic.light();
   }
 
@@ -430,8 +376,6 @@
     $stop.disabled  = true;
     $save.disabled  = samples.length === 0;
     updateCyclesVisibility();
-
-    // chart back to idle look (keep buffer flowing, but greyscale)
     chartActive = false;
   }
 
@@ -457,23 +401,16 @@
   // -------------------- Permission flow --------------------
   async function requestAndStart(){
     try {
-      ensureAudio(); // create audio context from user gesture
-      // iOS Safari requires user gesture + explicit permission
+      ensureAudio();
       if (typeof DeviceMotionEvent !== 'undefined' &&
           typeof DeviceMotionEvent.requestPermission === 'function') {
         const r1 = await DeviceMotionEvent.requestPermission();
-        if (r1 !== 'granted') {
-          alert('Motion permission denied. Enable “Motion & Orientation Access” in iOS Settings → Safari.');
-          return;
-        }
+        if (r1 !== 'granted') { alert('Motion permission denied.'); return; }
       }
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         const r2 = await DeviceOrientationEvent.requestPermission();
-        if (r2 !== 'granted') {
-          alert('Orientation permission denied. Enable “Motion & Orientation Access” in iOS Settings → Safari.');
-          return;
-        }
+        if (r2 !== 'granted') { alert('Orientation permission denied.'); return; }
       }
       start();
     } catch (e) {
@@ -494,7 +431,7 @@
     }
     last.ts = now;
 
-    // feed chart buffer (always, so Idle 也有灰线动)
+    // feed chart buffer (always)
     pushSample(now, last.gx, last.gy, last.gz);
     updateScale();
 
@@ -505,14 +442,12 @@
     last.alpha = e.alpha ?? 0;
     last.beta  = e.beta  ?? 0;
     last.gamma = e.gamma ?? 0;
-    // Approx mapping: yaw≈alpha(z)、pitch≈beta(x)、roll≈gamma(y)
     last.yaw   = (last.alpha || 0) * DEG;
     last.pitch = (last.beta  || 0) * DEG;
     last.roll  = (last.gamma || 0) * DEG;
   });
 
   // -------------------- Logic --------------------
-  let lockAnnounced = false;
   let tripsShown = 0;
 
   const isStill = ()=> Math.hypot(last.gx,last.gy,last.gz) < STILL_GYRO;
@@ -536,12 +471,10 @@
           setStatus('Recording…');
           setHint(runningHint($task.value));
           t0 = now;
-          lockAnnounced = false; tripsShown = 0;
-          // 真正开始时蜂鸣提示
+          tripsShown = 0;
           beepStart();
           haptic.light();
-          // 清空绘图缓冲以从“开始时刻”可视化
-          resetBuffer();
+          resetBuffer(); // 从“开始时刻”可视化
         }
       } else {
         stillSince = null;
@@ -580,22 +513,23 @@
     } else if (task === 'Fast Sagittal Continuous') {
       const r = cycle(rel.pitch); finished = r.done; if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
     } else if (task === 'Fast Sagittal (Twist Right)') {
-      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, +1); // 修改后的逻辑
+      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, +1);
       finished = r.done;
-      if (r.justLocked){ beepStart(); haptic.medium(); } // 扭转达阈值时提示“滴”
+      if (r.justLocked){ beepStart(); haptic.medium(); }
       if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
       setHint(r.locked ? `Locked right (≥${twistDeg}°): fast crunch ×6` : `Twist RIGHT ≥${twistDeg}° then fast crunch ×6`);
     } else if (task === 'Fast Sagittal (Twist Left)') {
-      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, -1); // 修改后的逻辑
+      const r = twistThenCrunchCycles(rel.yaw, rel.pitch, -1);
       finished = r.done;
       if (r.justLocked){ beepStart(); haptic.medium(); }
       if (r.trips !== tripsShown){ setCycles(r.trips); haptic.light(); tripsShown=r.trips; }
       setHint(r.locked ? `Locked left (≥${twistDeg}°): fast crunch ×6` : `Twist LEFT ≥${twistDeg}° then fast crunch ×6`);
+    } else if (task === 'Test') {  // 🔥 自由模式
+      finished = false;            // 永不自动完成，只能 Stop
     }
 
     if (finished){
       finish();
-      lockAnnounced = false;
       tripsShown = TARGET_TRIPS;
     }
   }
@@ -635,10 +569,7 @@
     return { trips, done: trips >= TARGET_TRIPS };
   }
 
-  // ---- NEW: twist -> then count sagittal crunch cycles ----
-  // 改动点：
-  // 1) 使用 UI 可调的 TWIST_RAD（默认 8°），无需 1 秒锁定；达到阈值立即“锁定”
-  // 2) 锁定瞬间发出“滴”声 + 轻中震动，然后进入 pitch 的 cycle 计数，至 6 次完成
+  // twist -> then count sagittal crunch cycles
   function twistThenCrunchCycles(yaw, pitch, dir){
     let justLocked = false;
     if (!locked){
@@ -647,7 +578,7 @@
         locked = true;
         lastOut = false;
         trips = 0;
-        justLocked = true; // 触发提示音与震动
+        justLocked = true;
       }
       return { locked:false, justLocked, trips, done:false };
     } else {
@@ -659,7 +590,6 @@
   // -------------------- Save / Share CSV --------------------
   async function saveCSV(){
     if (!samples.length) return;
-    // header with units
     let s = 't(s),yaw(rad),pitch(rad),roll(rad),ax(m/s^2),ay(m/s^2),az(m/s^2),gx(rad/s),gy(rad/s),gz(rad/s),alpha(deg),beta(deg),gamma(deg)\n';
     for (const v of samples){
       s += `${v.t.toFixed(6)},${v.yaw},${v.pitch},${v.roll},${v.ax},${v.ay},${v.az},${v.gx},${v.gy},${v.gz},${v.alpha},${v.beta},${v.gamma}\n`;
@@ -678,7 +608,6 @@
         return;
       }catch(err){ console.warn('Share error or canceled:', err); }
     }
-    // Fallback: download
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -697,6 +626,7 @@
       case 'Fast Sagittal Continuous': return 'Stand still (1s). Then: fast crunch ×6.';
       case 'Fast Sagittal (Twist Right)': return `Stand still (1s). Then: twist RIGHT ≥${twistDeg}° → fast crunch ×6.`;
       case 'Fast Sagittal (Twist Left)' : return `Stand still (1s). Then: twist LEFT ≥${twistDeg}° → fast crunch ×6.`;
+      case 'Test': return 'Stand still (1s). Then: free motion; press Stop to finish.';
     }
     return '';
   }
@@ -710,6 +640,7 @@
       case 'Fast Sagittal Continuous':return 'Go fast: crunch ×6.';
       case 'Fast Sagittal (Twist Right)': return `Twist RIGHT to lock (≥${twistDeg}°), then fast crunch ×6.`;
       case 'Fast Sagittal (Twist Left)' : return `Twist LEFT to lock (≥${twistDeg}°), then fast crunch ×6.`;
+      case 'Test' : return 'Free motion recording. Press Stop when done.';
     }
     return '';
   }
